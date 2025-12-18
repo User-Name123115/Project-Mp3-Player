@@ -1,1 +1,12 @@
-
+[
+  {
+    "title": "Sample song 1",
+    "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+    "type": "music/mp3"
+  },
+  {
+    "title": "Sample song 2",
+    "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+    "type": "music/mp3"
+  }
+]
