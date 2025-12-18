@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simple MP3 Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        .player-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: black;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .visualizer {
+            width: 100%;
+            height: 70%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .visualizer-bar {
+            width: 4px;
+            height: 20px;
+            background: linear-gradient(to top, #00ff88, #0088ff);
+            margin: 0 2px;
+            border-radius: 2px;
+            animation: pulse 1.5s infinite alternate;
+            animation-delay: calc(var(--i) * 0.1s);
+        }
+        @keyframes pulse {
+            0% { height: 20px; opacity: 0.7; }
+            100% { height: 200px; opacity: 1; }
+        }
+        .song-info {
+            text-align: center;
+            padding: 20px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.7);
+        }
+        .song-title {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        audio {
+            width: 80%;
+            margin-top: 20px;
+        }
+        .sidebar-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid #333;
+            padding: 10px 15px;
+            cursor: pointer;
+            z-index: 1001;
+            border-radius: 4px;
+        }
+        .sidebar {
+            position: fixed;
+            top: 0;
+            right: -350px;
+            width: 350px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            transition: right 0.3s ease;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .sidebar.open {
+            right: 0;
+        }
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+        .song-item {
+            background: rgba(50, 50, 50, 0.5);
+            margin-bottom: 10px;
+            padding: 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .song-item:hover {
+            background: rgba(70, 70, 70, 0.7);
+        }
+        .song-item.active {
+            background: rgba(100, 100, 100, 0.7);
+            border-left: 4px solid #00ff88;
+        }
+        .song-title-sidebar {
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .loading {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+        }
+        .error {
+            padding: 20px;
+            text-align: center;
+            color: #ff6b6b;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .control-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid #333;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .control-btn:hover {
+            background: rgba(100, 100, 100, 0.7);
+        }
+        .sidebar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="visualizer" id="visualizer"></div>
+        <div class="song-info">
+            <div class="song-title" id="current-song-title">Select a song</div>
+            <audio id="audio-player" controls autoplay></audio>
+            <div class="controls">
+                <button class="control-btn" id="play-btn">Play</button>
+                <button class="control-btn" id="pause-btn">Pause</button>
+                <button class="control-btn" id="next-btn">Next</button>
+            </div>
+        </div>
+    </div>
+    <button class="sidebar-toggle" id="toggle-btn">≡ Songs</button>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Song Playlist</h3>
+            <button class="close-btn" id="close-btn">×</button>
+        </div>
+        <div id="song-list"></div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const audioPlayer = document.getElementById('audio-player');
+            const songList = document.getElementById('song-list');
+            const toggleBtn = document.getElementById('toggle-btn');
+            const closeBtn = document.getElementById('close-btn');
+            const sidebar = document.getElementById('sidebar');
+            const visualizer = document.getElementById('visualizer');
+            const currentSongTitle = document.getElementById('current-song-title');
+            const playBtn = document.getElementById('play-btn');
+            const pauseBtn = document.getElementById('pause-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const jsonUrl = 'https://raw.githubusercontent.com/User-Name123115/Project-Mp3-Player/refs/heads/main/Mp3/Online/Songs.json';
+            const fallbackSongs = [
+                {"title": "Sample song 1", "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", "type": "music/mp3"},
+                {"title": "Sample song 2", "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", "type": "music/mp3"}
+            ];
+            let songs = [];
+            let currentSongIndex = 0;
+            function createVisualizer() {
+                visualizer.innerHTML = '';
+                for(let i = 0; i < 50; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'visualizer-bar';
+                    bar.style.setProperty('--i', i);
+                    visualizer.appendChild(bar);
+                }
+            }
+            toggleBtn.addEventListener('click', () => {
+                sidebar.classList.add('open');
+            });
+            closeBtn.addEventListener('click', () => {
+                sidebar.classList.remove('open');
+            });
+            async function loadSongs() {
+                try {
+                    songList.innerHTML = '<div class="loading">Loading songs...</div>';
+                    const response = await fetch(jsonUrl);
+                    if (!response.ok) throw new Error('Failed to load');
+                    const data = await response.json();
+                    if (Array.isArray(data)) songs = data;
+                    else if (data.songs && Array.isArray(data.songs)) songs = data.songs;
+                    else throw new Error('Invalid format');
+                    if (songs.length === 0) songs = fallbackSongs;
+                    renderSongList();
+                    if (songs.length) playSong(0);
+                } catch {
+                    songs = fallbackSongs;
+                    renderSongList();
+                    if (songs.length) playSong(0);
+                }
+            }
+            function renderSongList() {
+                songList.innerHTML = '';
+                songs.forEach((song, index) => {
+                    const songItem = document.createElement('div');
+                    songItem.className = `song-item ${index === currentSongIndex ? 'active' : ''}`;
+                    const title = document.createElement('div');
+                    title.className = 'song-title-sidebar';
+                    title.textContent = song.title || `Song ${index + 1}`;
+                    const type = document.createElement('div');
+                    type.style.fontSize = '12px';
+                    type.style.color = '#888';
+                    type.textContent = song.type || 'audio/mp3';
+                    songItem.appendChild(title);
+                    songItem.appendChild(type);
+                    songItem.addEventListener('click', () => {
+                        playSong(index);
+                        sidebar.classList.remove('open');
+                    });
+                    songList.appendChild(songItem);
+                });
+            }
+            function playSong(index) {
+                if (index < 0 || index >= songs.length) return;
+                currentSongIndex = index;
+                const song = songs[index];
+                audioPlayer.src = song.url;
+                currentSongTitle.textContent = song.title || `Song ${index + 1}`;
+                audioPlayer.play().catch(() => {});
+                renderSongList();
+                createVisualizer();
+            }
+            playBtn.addEventListener('click', () => audioPlayer.play());
+            pauseBtn.addEventListener('click', () => audioPlayer.pause());
+            nextBtn.addEventListener('click', () => {
+                playSong((currentSongIndex + 1) % songs.length);
+            });
+            audioPlayer.addEventListener('ended', () => {
+                playSong((currentSongIndex + 1) % songs.length);
+            });
+            createVisualizer();
+            loadSongs();
+        });
+    </script>
+</body>
+</html>
